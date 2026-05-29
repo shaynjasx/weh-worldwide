@@ -50,7 +50,7 @@ app.use(session({
   secret: SESSION_SECRET || "weh-secret",
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7*24*60*60*1000, httpOnly: true, sameSite: "lax" },
+  cookie: { maxAge: 7*24*60*60*1000, httpOnly: true, sameSite: "none", secure: true },
 }));
 
 /* CORS — allow Netlify site to call this backend */
@@ -110,7 +110,7 @@ app.get("/auth/discord/callback", async (req, res) => {
       : "https://cdn.discordapp.com/embed/avatars/0.png";
 
     req.session.user = { id: discordUser.id, name: member.name, slug: member.slug, avatarUrl };
-    res.redirect(`${SITE_URL}/${member.slug}?login=success`);
+    res.redirect(`${SITE_URL}?login=success`);
 
   } catch (err) {
     console.error(err);
