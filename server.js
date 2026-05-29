@@ -37,14 +37,7 @@ const MEMBERS = {
   "1460786136980000981": { name:"Weh Sosa",    slug:"weh-sosa"    },
 };
 
-const {
-  DISCORD_CLIENT_ID,
-  DISCORD_CLIENT_SECRET,
-  REDIRECT_URI,
-  SESSION_SECRET,
-  SITE_URL,
-  PORT = 3000,
-} = process.env;
+const { DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET, REDIRECT_URI, SESSION_SECRET, SITE_URL, PORT = 3000 } = process.env;
 
 app.use(session({
   secret: SESSION_SECRET || "weh-secret",
@@ -53,18 +46,13 @@ app.use(session({
   cookie: { maxAge: 7*24*60*60*1000, httpOnly: true, sameSite: "none", secure: true },
 }));
 
-/* CORS — allow Netlify site to call this backend */
 app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && (origin.includes("netlify.app") || origin.includes(SITE_URL))) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  }
+  res.setHeader("Access-Control-Allow-Origin", SITE_URL || "*");
+  res.setHeader("Access-Control-Allow-Credentials", "true");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 
-/* START OAUTH */
 app.get("/auth/discord", (req, res) => {
   const params = new URLSearchParams({
     client_id: DISCORD_CLIENT_ID,
@@ -75,7 +63,6 @@ app.get("/auth/discord", (req, res) => {
   res.redirect(`https://discord.com/oauth2/authorize?${params}`);
 });
 
-/* CALLBACK */
 app.get("/auth/discord/callback", async (req, res) => {
   const { code, error } = req.query;
   if (error || !code) return res.redirect(`${SITE_URL}/?login=denied`);
@@ -109,8 +96,11 @@ app.get("/auth/discord/callback", async (req, res) => {
       ? `https://cdn.discordapp.com/avatars/${discordUser.id}/${avatarHash}.${ext}?size=128`
       : "https://cdn.discordapp.com/embed/avatars/0.png";
 
-    req.session.user = { id: discordUser.id, name: member.name, slug: member.slug, avatarUrl };
-    res.redirect(`${SITE_URL}?login=success`);
+    const user = { id: discordUser.id, name: member.name, slug: member.slug, avatarUrl };
+
+    /* Pass user data in URL so Netlify can store it in localStorage */
+    const userData = encodeURIComponent(JSON.stringify(user));
+    res.redirect(`${SITE_URL}?login=success&user=${userData}`);
 
   } catch (err) {
     console.error(err);
@@ -118,14 +108,12 @@ app.get("/auth/discord/callback", async (req, res) => {
   }
 });
 
-/* API: get session */
-app.get("/api/me", (req, res) => {
-  res.json(req.session.user ? { ok: true, user: req.session.user } : { ok: false });
+app.get("/auth/logout", (req, res) => {
+  res.redirect(`${SITE_URL}?login=logout`);
 });
 
-/* LOGOUT */
-app.get("/auth/logout", (req, res) => {
-  req.session.destroy(() => res.redirect(SITE_URL));
+app.get("/api/me", (req, res) => {
+  res.json({ ok: false });
 });
 
 app.listen(PORT, () => console.log(`WEH backend running on port ${PORT}`));
